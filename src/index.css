@@ -1,0 +1,25 @@
+@import url("https://fonts.googleapis.com/css2?family=Nova+Square&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: "Nova Square", serif;
+}
+.loader {
+  border: 3px solid #333;
+  border-top: 3px solid rgb(6, 72, 255);
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
