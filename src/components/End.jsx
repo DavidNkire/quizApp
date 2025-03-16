@@ -1,10 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BiHome } from "react-icons/bi";
 import { Link, useNavigate } from "react-router-dom";
 
 const End = ({ score, setScore }) => {
   const [userName, setUserName] = useState("");
   const navigate = useNavigate();
+  const [rankMessage, setRankMessage] = useState("");
+
+  useEffect(() => {
+    // Rank messages based on score range
+    if (score >= 800) setRankMessage("🏆 Legend! You're unstoppable!");
+    else if (score >= 500) setRankMessage("🔥 Great job! Keep it up!");
+    else if (score >= 200) setRankMessage("👏 Not bad! Try again to improve.");
+    else setRankMessage("😢 Don't give up! Practice makes perfect.");
+  }, [score]);
 
   const saveScore = () => {
     if (!userName.trim()) {
@@ -12,29 +21,22 @@ const End = ({ score, setScore }) => {
       return;
     }
 
-    const userScore = {
-      name: userName,
-      score: score,
-    };
+    const userScore = { name: userName, score };
 
     try {
-      // Attempt to parse stored scores or reset to an empty array if invalid
-      let storedScores = JSON.parse(localStorage.getItem("user-data-score"));
+      let storedScores =
+        JSON.parse(localStorage.getItem("user-data-score")) || [];
 
       if (!Array.isArray(storedScores)) {
-        console.warn(
-          "Stored scores are not a valid array. Resetting to an empty array."
-        );
         storedScores = [];
       }
 
-      // Add the new score and save it back to localStorage
-      const updatedScores = [...storedScores, userScore];
-      localStorage.setItem("user-data-score", JSON.stringify(updatedScores));
+      storedScores.push(userScore);
+      localStorage.setItem("user-data-score", JSON.stringify(storedScores));
 
       alert("Score saved successfully!");
-      setScore(0); // Reset score after saving
-      navigate("/"); // Redirect to home
+      setScore(0);
+      navigate("/");
     } catch (error) {
       console.error("Failed to save the score:", error);
       alert("An error occurred while saving the score. Please try again.");
@@ -42,42 +44,47 @@ const End = ({ score, setScore }) => {
   };
 
   return (
-    <div className="flex flex-col h-screen items-center justify-center text-white">
-      <h1 className="sm:text-6xl font-bold text-5xl">{`Score: ${score}`}</h1>
-      <h2 className="font-bold sm:text-3xl text-2xl text-center py-10">
-        Enter your name below to <br /> save your score!
-      </h2>
+    <div className="flex flex-col h-screen items-center justify-center text-white animate-fadeIn">
+      <h1 className="text-6xl font-bold text-yellow-400 drop-shadow-lg animate-pulse">
+        Score: {score}
+      </h1>
+
+      <h2 className="font-bold text-2xl text-center py-6">{rankMessage}</h2>
+
+      <h3 className="text-xl text-gray-200 py-4">
+        Enter your name to save your score:
+      </h3>
       <input
         type="text"
-        placeholder="Enter your name"
+        placeholder="Your name..."
         value={userName}
         onChange={(e) => setUserName(e.target.value)}
-        className="sm:text-[1.4rem] text-[1.2rem] sm:h-[65px] sm:w-[320px] h-[50px] w-[290px] outline-none text-black px-5 py-2"
-        aria-label="Enter your name"
+        className="text-lg h-12 w-80 rounded-lg outline-none text-black px-5 py-2 shadow-lg border-2 border-blue-300 focus:ring-4 focus:ring-blue-500 transition"
       />
+
       <button
         onClick={saveScore}
-        className="py-6 sm:text-[1.5rem] text-[1.2rem] px-14 bg-[rgb(0,56,238)] sm:w-[20rem] w-[18rem] mt-5 rounded-lg"
-        aria-label="Save Score"
+        className="mt-5 py-4 px-12 text-lg font-bold bg-green-500 hover:bg-green-700 rounded-lg shadow-md transition-transform transform hover:scale-105"
       >
-        Save
+        Save Score
       </button>
+
       <button
         onClick={() => {
+          setScore(0);
           navigate("/game");
-          setScore(0); // Reset score before starting a new game
         }}
-        className="py-6 sm:text-[1.5rem] text-[1.2rem] px-14 bg-[rgb(5,56,255)] sm:w-[20rem] w-[18rem] mt-5 rounded-lg"
-        aria-label="Play Again"
+        className="mt-4 py-4 px-12 text-lg font-bold bg-blue-500 hover:bg-blue-700 rounded-lg shadow-md transition-transform transform hover:scale-105"
       >
         Play Again
       </button>
+
       <Link
+        onClick={() => setScore(0)}
         to="/"
-        className="py-6 sm:text-[1.5rem] text-[1.2rem] flex justify-center gap-5 items-center px-14 bg-[rgb(5,56,255)] sm:w-[20rem] w-[18rem] mt-5 rounded-lg"
-        aria-label="Go Home"
+        className="mt-4 flex items-center gap-3 py-4 px-12 text-lg font-bold bg-gray-800 hover:bg-gray-900 rounded-lg shadow-md transition-transform transform hover:scale-105"
       >
-        Go Home <BiHome />
+        <BiHome size={24} /> Go Home
       </Link>
     </div>
   );

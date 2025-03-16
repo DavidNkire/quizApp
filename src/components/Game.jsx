@@ -1,17 +1,23 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import gsap from "gsap";
 
-// ChoiceContainer with React.forwardRef
+// ChoiceContainer using React.forwardRef
 const ChoiceContainer = React.forwardRef(
-  ({ prefix, choice, handleClick }, ref) => {
+  ({ prefix, choice, handleClick, isSelected, feedback }, ref) => {
     return (
       <div
         ref={ref}
         onClick={handleClick}
-        className="flex gap-5 mt-3 cursor-pointer hover:shadow-2xl hover:shadow-[#171717] hover:scale-[1.05] transition-[150ms] text-[1.2rem] rounded-lg bg-blue-700 w-[90%] p-7 self-center        "
+        className={`flex gap-5 mt-3 cursor-pointer hover:shadow-2xl hover:shadow-[#171717] hover:scale-[1.05] 
+      transition-[150ms] text-[1.2rem] rounded-lg w-[90%] p-7 self-center
+      ${isSelected === "correct" ? "bg-green-500 opacity-80" : ""}
+      ${isSelected === "wrong" ? "bg-red-500 opacity-80" : ""}
+      ${!isSelected ? "bg-blue-700" : ""}`}
       >
         <span>{prefix}</span>
         <h2>{choice}</h2>
+        {feedback && <span className="ml-3 font-bold">{feedback}</span>}
       </div>
     );
   }
@@ -20,14 +26,18 @@ const ChoiceContainer = React.forwardRef(
 const Game = ({ score, setScore, categoryID }) => {
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const choiceRefs = useRef([]); // Use useRef for refs
+  const [selectedChoice, setSelectedChoice] = useState(null);
+  const [feedback, setFeedback] = useState(null);
+  const [animatedScore, setAnimatedScore] = useState(0);
+  const choiceRefs = useRef([]);
   const navigate = useNavigate();
+  const progressRef = useRef(null);
 
+  // Function to decode HTML entities in API responses
   const decodeHTML = (html) => {
     const parser = new DOMParser();
-    const decodedString = parser.parseFromString(html, "text/html")
-      .documentElement.textContent;
-    return decodedString;
+    return parser.parseFromString(html, "text/html").documentElement
+      .textContent;
   };
 
   // Fetch questions from API
@@ -52,76 +62,119 @@ const Game = ({ score, setScore, categoryID }) => {
       }
     };
     fetchQuestions();
-  }, []);
+  }, [categoryID]);
+
+  const currentQuestion = questions[currentQuestionIndex] || null;
+  const MAX_QUESTIONS = questions.length || 1; // Prevent division by zero
+  const progressPercentage = ((currentQuestionIndex + 1) / MAX_QUESTIONS) * 100;
+
+  // Reset choice styles when moving to the next question
+  useEffect(() => {
+    setSelectedChoice(null);
+    setFeedback(null);
+    choiceRefs.current.forEach((ref) => {
+      if (ref) {
+        ref.classList.remove("bg-green-500", "bg-red-500", "opacity-80");
+      }
+    });
+  }, [currentQuestionIndex]);
+
+  // GSAP Animation for Progress Bar
+  useEffect(() => {
+    if (progressRef.current) {
+      gsap.to(progressRef.current, {
+        width: `${progressPercentage}%`,
+        duration: 0.8,
+        ease: "power2.out",
+      });
+    }
+  }, [progressPercentage]);
+
+  useEffect(() => {
+    if (animatedScore < score) {
+      const interval = setInterval(() => {
+        setAnimatedScore((prev) => (prev < score ? prev + 1 : prev));
+      }, 10);
+      return () => clearInterval(interval);
+    }
+  }, [score]);
 
   if (questions.length === 0)
     return (
       <div className="h-screen w-screen text-3xl text-white flex items-center justify-center flex-col gap-5">
         <p>Loading questions...</p>
-
         <div id="loader" className="loader"></div>
       </div>
     );
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const MAX_QUESTIONS = questions.length;
-  const progressPercentage = ((currentQuestionIndex + 1) / MAX_QUESTIONS) * 100;
-
   const handleChoiceClick = (choice, index) => {
+    if (selectedChoice !== null) return; // Prevent multiple selections
+
     const isCorrect = choice === currentQuestion.answer;
-    const updatedScore = score + (isCorrect ? 100 : 0);
+    setSelectedChoice(isCorrect ? "correct" : "wrong");
+    setFeedback(isCorrect ? "✔ Correct" : "✖ Wrong");
 
-    if (choiceRefs.current[index]) {
-      const backgroundColorClass = isCorrect ? "bg-green-500" : "bg-red-500";
-      choiceRefs.current[index].classList.add(backgroundColorClass);
+    // Update Score
+    if (isCorrect) setScore((prev) => prev + 100);
 
-      setTimeout(() => {
-        choiceRefs.current[index].classList.remove(
-          "bg-green-500",
-          "bg-red-500"
+    setTimeout(() => {
+      if (!isCorrect) {
+        // Highlight correct answer
+        const correctIndex = currentQuestion.choices.indexOf(
+          currentQuestion.answer
         );
-      }, 300);
-    }
+        choiceRefs.current[correctIndex]?.classList.add(
+          "bg-green-500",
+          "opacity-80"
+        );
+      }
+    }, 1000);
 
-    setScore(updatedScore);
-
-    if (currentQuestionIndex + 1 >= MAX_QUESTIONS) {
-      navigate("/end");
-      return;
-    }
-
-    setCurrentQuestionIndex((prev) => prev + 1);
+    setTimeout(() => {
+      if (currentQuestionIndex + 1 < questions.length) {
+        setCurrentQuestionIndex((prev) => prev + 1);
+      } else {
+        navigate("/end"); // Redirect to results page (or handle end logic)
+      }
+    }, 2000);
   };
 
   return (
-    <div className="text-white w-full h-full flex items-center justify-center">
-      <div className="md:w-[60%] w-full sm:px-0 px-5">
+    <div className="text-white w-full md:py-0 py-10 min-h-screen flex items-center justify-center">
+      <div className="md:w-[66%] w-full sm:px-0 px-5">
         <div id="hud" className="flex justify-between w-full">
+          {/* Question Progress */}
           <div className="hud-item flex flex-col items-center justify-center">
             <p className="text-2xl text-center mb-3">{`Question ${
               currentQuestionIndex + 1
             } / ${MAX_QUESTIONS}`}</p>
             <div
               id="progressBar"
-              className="md:w-[280px] w-[200px] border-green-500  md:h-[50px] h-[40px] rounded-full border-[5px]"
+              className="md:w-[280px] w-[200px] border-green-500 md:h-[50px] h-[40px] rounded-full border-[5px]"
             >
               <div
                 id="progressBarFull"
-                style={{ width: `${progressPercentage}%` }}
+                ref={progressRef}
                 className="bg-green-500 h-full rounded-full"
               ></div>
             </div>
           </div>
+
+          {/* Score Display */}
           <div className="hud-item flex flex-col justify-center items-center">
             <p className="text-2xl">Score</p>
-            <h1 className="md:text-7xl sm:text-5xl text-3xl">{score}</h1>
+            <h1 className="md:text-7xl sm:text-5xl text-3xl">
+              {animatedScore}
+            </h1>
           </div>
         </div>
 
+        {/* Question Display */}
         <h1 className="md:text-6xl sm:text-4xl text-3xl font-semibold my-10">
           {currentQuestion.question}
         </h1>
 
+        {/* Choices */}
         {currentQuestion.choices.map((choice, index) => (
           <ChoiceContainer
             key={index}
@@ -129,6 +182,24 @@ const Game = ({ score, setScore, categoryID }) => {
             prefix={String.fromCharCode(65 + index)} // A, B, C, D
             choice={choice}
             handleClick={() => handleChoiceClick(choice, index)}
+            isSelected={
+              selectedChoice === "correct" && choice === currentQuestion.answer
+                ? "correct"
+                : selectedChoice === "wrong" &&
+                  choice === currentQuestion.answer
+                ? "correct"
+                : selectedChoice === "wrong" &&
+                  choice !== currentQuestion.answer
+                ? "wrong"
+                : null
+            }
+            feedback={
+              selectedChoice !== null &&
+              selectedChoice === "wrong" &&
+              choice === currentQuestion.answer
+                ? "✔ Correct Answer"
+                : null
+            }
           />
         ))}
       </div>
